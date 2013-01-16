@@ -4,7 +4,7 @@ from django.core.urlresolvers import reverse
 from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import render_to_response, redirect
 from django.template import RequestContext
-from forms import LoginForm
+from forms import LoginForm, RegisterForm
 from mongoengine.django.auth import User
 from authentication import settings
 from models import UserLoginStub
@@ -39,14 +39,33 @@ def register( request ):
     if request.user.is_authenticated():
         return HttpResponseRedirect( reverse('login_url') )
 
-    # Create an inactive User
-    user = User.create_user( request.POST['username'], request.POST['password'] )
-    user.is_active = False
-    user.save()
+    # The registration form
+    form = None
 
-    stub = UserLoginStub.objects.create( user=user )
-    # TODO: send confirmation email
-    
+    # Form has been submitted
+    if request.method == 'POST':
+        form = RegisterForm( request.POST )
+
+        # Validate the registration form
+        if form.is_valid():
+            user = User.create_user( form.cleaned_data['username'],
+                                     form.cleaned_data['password1'] )
+            user.first_name = form.cleaned_data['first_name']
+            user.last_name = form.cleaned_data['last_name']
+            user.is_active = False
+            user.save()
+            
+            stub = UserLoginStub.objects.create( user=user )
+
+            # TODO: send confirmation email
+            return HttpResponse("your user has been created as inactive")
+
+    # Form needs to be rendered
+    else:
+        form = RegisterForm()
+
+    # Render the form (possibly with errors if form did not validate)
+    return render_to_response( 'register.html', locals(), context_instance=RequestContext(request) )
 
 @login_required
 def user_show( request ):

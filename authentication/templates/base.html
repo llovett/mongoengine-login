@@ -8,5 +8,12 @@
       {% block content %}
       {% endblock %}
     </div>
+    <div id="links">
+      <ul class="linklist">
+	<li><a href="{% url login_url %}">login</a></li>
+	<li><a href="{% url logout_url %}">logout</a></li>
+	<li><a href="{% url register_url %}">register</a></li>
+      </ul>
+    </div>      
   </body>
 </html>  

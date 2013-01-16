@@ -1,5 +1,8 @@
 from django import forms
+from django.core.validators import EMPTY_VALUES
+from django.utils.encoding import smart_text
 import re
+from mongoengine.django.auth import User
 
 class LoginForm( forms.Form ):
     # Username is an email
@@ -7,12 +10,14 @@ class LoginForm( forms.Form ):
     password = forms.CharField( widget=forms.PasswordInput(render_value=False),
                                 max_length=20 )
 
-class USPhoneNumberField( CharField ):
+class USPhoneNumberField( forms.CharField ):
     '''
     Recognizes, cleans, and validates a US phone number.
+
+    Based on https://github.com/django/django-localflavor-us/blob/master/django_localflavor_us/forms.py
     '''
     default_error_messages = {
-        'invalid' : _('Not a valid phone number. Be sure to include area code.'),
+        'invalid' : ('Not a valid phone number. Be sure to include area code.'),
     }
 
     PHONE_DIGITS_RE = re.compile(r'^(?:1-?)?(\d{3})[-\.]?(\d{3})[-\.]?(\d{4})$')
@@ -23,8 +28,8 @@ class USPhoneNumberField( CharField ):
             return ''
         value = re.sub( '(\(|\)|\s+)', '', smart_text(value) )
         mat = USPhoneNumberField.PHONE_DIGITS_RE.search( value )
-        if m:
-            return "{}-{}-{}".format( m.group(1), m.group(2), m.group(3) )
+        if mat:
+            return "{}-{}-{}".format( mat.group(1), mat.group(2), mat.group(3) )
         raise forms.ValidationError( self.error_messages['invalid'] )
 
 class RegisterForm( forms.Form ):
@@ -40,3 +45,12 @@ class RegisterForm( forms.Form ):
     last_name = forms.CharField( label="last name" )
     phone = USPhoneNumberField()
 
+    def clean( self ):
+        cleaned_data = super( RegisterForm, self ).clean()
+        # Passwords must match
+        if cleaned_data['password1'] != cleaned_data['password2']:
+            raise forms.ValidationError("Passwords must match.")
+        # Unique usernames (email)
+        if User.objects( username=cleaned_data['username'] ).count() > 0:
+            raise forms.ValidationError("That username is already taken.")
+        return cleaned_data
