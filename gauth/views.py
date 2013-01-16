@@ -8,6 +8,8 @@ from forms import LoginForm, RegisterForm
 from mongoengine.django.auth import User
 from authentication import settings
 from models import UserLoginStub
+import smtplib
+import settings
 
 def login_view( request ):
     # Login form submitted
@@ -58,8 +60,24 @@ def register( request ):
             stub = UserLoginStub.objects.create( user=user )
 
             # TODO: send confirmation email
+            hostname = settings.HOSTNAME if 'HOSTNAME' in dir(settings) else 'localhost'
+            activate_uri = reverse( 'activate_url' )
+            activate_link = 'http://{}/{}'.format( hostname, activate_uri )
+            email_subject = "Welcome to {}!".format( settings.SITE_NAME if 'SITE_NAME' in dir(settings) else 'Your App' )
+            email_from = 'noreply@{}'.format( hostname )
+            email_to = form.cleaned_data['username']
+            msg_body = "Welcome to Obietaxi! Your account has already been created with this email address, now all you need to do is confirm your accout by clicking on the link below. If there is no link, you should copy & paste the address into your browser's address bar and navigate there.\n\n{}".format( activate_link )
+            email_message = "\r\n".join( ["From: {}".format(email_from),
+                                          "To: {}".format(email_to),
+                                          "Subject: {}".format(email_subject),
+                                          "",
+                                          msg_body] )
+            server = smtplib.SMTP( hostname )
+            server.sendmail( email_from, [email_to], email_message )
+            server.quit()
+            
             return HttpResponse("your user has been created as inactive")
-
+        
     # Form needs to be rendered
     else:
         form = RegisterForm()
