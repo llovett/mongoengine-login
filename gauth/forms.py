@@ -37,20 +37,29 @@ class RegisterForm( forms.Form ):
     username = forms.EmailField( label="email" )
     password1 = forms.CharField( widget=forms.PasswordInput(render_value=False),
                                  max_length=20,
-                                 label="password" )
+                                 label="password",
+                                 required=True )
     password2 = forms.CharField( widget=forms.PasswordInput(render_value=False),
                                  max_length=20,
-                                 label="password (again)" )
+                                 label="password (again)",
+                                 required=True )
     first_name = forms.CharField( label="first name" )
     last_name = forms.CharField( label="last name" )
     phone = USPhoneNumberField()
 
     def clean( self ):
         cleaned_data = super( RegisterForm, self ).clean()
+
+        pw1 = cleaned_data.get('password1')
+        pw2 = cleaned_data.get('password2')
+        usr = cleaned_data.get('username')
+
         # Passwords must match
-        if cleaned_data['password1'] != cleaned_data['password2']:
-            raise forms.ValidationError("Passwords must match.")
+        if pw1 and pw2:
+            if cleaned_data['password1'] != cleaned_data['password2']:
+                raise forms.ValidationError("Passwords must match.")
         # Unique usernames (email)
-        if User.objects( username=cleaned_data['username'] ).count() > 0:
-            raise forms.ValidationError("That username is already taken.")
+        if usr:
+            if User.objects( username=usr ).count() > 0:
+                raise forms.ValidationError("That username is already taken.")
         return cleaned_data
