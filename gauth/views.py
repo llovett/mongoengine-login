@@ -17,14 +17,14 @@ def login_view( request ):
         error_msg = ''
         try:
             user = User.objects.get( username=request.POST['username'] )
-            if user.check_password( request.POST['password'] ):
+            if user.check_password( request.POST['password'] ) and user.is_active:
                 user.backend = 'mongoengine.django.auth.MongoEngineBackend'
                 login( request, user )
                 return HttpResponseRedirect( reverse('login_success') )
             else:
-                error_msg = 'password incorrect'
+                error_msg = 'invalid login'
         except User.DoesNotExist:
-            error_msg = 'user does not exist'
+            error_msg = 'invalid login'
         form = LoginForm()
         return render_to_response( 'login.html', locals(), context_instance=RequestContext(request) )
     # Login form needs rendering
@@ -88,7 +88,7 @@ def register( request ):
 def activate( request, key ):
     # Try to find the user/stub to activate
     try:
-        stub = UserLoginStub.objects( activationCode=key )
+        stub = UserLoginStub.objects.get( activationCode=key )
     except UserLoginStub.DoesNotExist:
         return HttpResponse("Invalid activation key.")
 
