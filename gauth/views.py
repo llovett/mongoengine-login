@@ -7,6 +7,7 @@ from django.template import RequestContext
 from forms import LoginForm
 from mongoengine.django.auth import User
 from authentication import settings
+from models import UserLoginStub
 
 def login_view( request ):
     # Login form submitted
@@ -32,6 +33,20 @@ def login_view( request ):
         return render_to_response( 'login.html',
                                    locals(),
                                    context_instance=RequestContext(request) )
+
+def register( request ):
+    # Cannot register if logged in already
+    if request.user.is_authenticated():
+        return HttpResponseRedirect( reverse('login_url') )
+
+    # Create an inactive User
+    user = User.create_user( request.POST['username'], request.POST['password'] )
+    user.is_active = False
+    user.save()
+
+    stub = UserLoginStub.objects.create( user=user )
+    # TODO: send confirmation email
+    
 
 @login_required
 def user_show( request ):
