@@ -13,7 +13,6 @@ class LoginForm( forms.Form ):
 class USPhoneNumberField( forms.CharField ):
     '''
     Recognizes, cleans, and validates a US phone number.
-
     Based on https://github.com/django/django-localflavor-us/blob/master/django_localflavor_us/forms.py
     '''
     default_error_messages = {
@@ -58,7 +57,7 @@ class RegisterForm( forms.Form ):
         if pw1 and pw2:
             if cleaned_data['password1'] != cleaned_data['password2']:
                 raise forms.ValidationError("Passwords must match.")
-        # Unique usernames (email)
+        # Unique usernames
         if usr:
             if User.objects( username=usr ).count() > 0:
                 raise forms.ValidationError("That username is already taken.")
