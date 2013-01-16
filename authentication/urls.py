@@ -7,4 +7,5 @@ urlpatterns = patterns('',
                        url( r'^accounts/profile/$', views.user_show, name="login_success" ),
                        url( r'^accounts/logout/$', views.user_logout, name="logout_url" ),
                        url( r'^accounts/register/$', views.register, name="register_url" ),
+                       url( r'^accounts/activate/([A-Fa-f0-9]+)/$', views.activate, name="activate_url" ),
 )

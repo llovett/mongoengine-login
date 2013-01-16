@@ -9,7 +9,7 @@ from mongoengine.django.auth import User
 from authentication import settings
 from models import UserLoginStub
 import smtplib
-import settings
+from authentication import settings
 
 def login_view( request ):
     # Login form submitted
@@ -61,9 +61,9 @@ def register( request ):
 
             # TODO: send confirmation email
             hostname = settings.HOSTNAME if 'HOSTNAME' in dir(settings) else 'localhost'
-            activate_uri = reverse( 'activate_url' )
-            activate_link = 'http://{}/{}'.format( hostname, activate_uri )
-            email_subject = "Welcome to {}!".format( settings.SITE_NAME if 'SITE_NAME' in dir(settings) else 'Your App' )
+            activate_uri = '/accounts/activate/'
+            activate_link = 'http://{}{}{}'.format( hostname, activate_uri, stub.activationCode )
+            email_subject = "Welcome to Obietaxi!"
             email_from = 'noreply@{}'.format( hostname )
             email_to = form.cleaned_data['username']
             msg_body = "Welcome to Obietaxi! Your account has already been created with this email address, now all you need to do is confirm your accout by clicking on the link below. If there is no link, you should copy & paste the address into your browser's address bar and navigate there.\n\n{}".format( activate_link )
@@ -72,7 +72,7 @@ def register( request ):
                                           "Subject: {}".format(email_subject),
                                           "",
                                           msg_body] )
-            server = smtplib.SMTP( hostname )
+            server = smtplib.SMTP( 'localhost' )
             server.sendmail( email_from, [email_to], email_message )
             server.quit()
             
@@ -84,6 +84,20 @@ def register( request ):
 
     # Render the form (possibly with errors if form did not validate)
     return render_to_response( 'register.html', locals(), context_instance=RequestContext(request) )
+
+def activate( request, key ):
+    # Try to find the user/stub to activate
+    try:
+        stub = UserLoginStub.objects( activationCode=key )
+    except UserLoginStub.DoesNotExist:
+        return HttpResponse("Invalid activation key.")
+
+    # Activate the user, lose the stub
+    user = stub.user
+    user.is_active = True
+    user.save()
+    stub.delete()
+    return HttpResponseRedirect( reverse('login_success') )
 
 @login_required
 def user_show( request ):

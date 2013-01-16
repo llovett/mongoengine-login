@@ -15,6 +15,9 @@ MANAGERS = ADMINS
 import os
 HERE = os.path.dirname( os.path.abspath(__file__) )
 
+# This needs to be changed as the site is moved around
+HOSTNAME='llovett.cs.oberlin.edu:8050'
+
 # Local time zone for this installation. Choices can be found here:
 # http://en.wikipedia.org/wiki/List_of_tz_zones_by_name
 # although not all choices may be available on all operating systems.
