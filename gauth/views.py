@@ -6,8 +6,9 @@ from django.shortcuts import render_to_response, redirect
 from django.template import RequestContext
 from forms import LoginForm, RegisterForm
 from mongoengine.django.auth import User
+from random import choice
 from authentication import settings
-from models import UserLoginStub
+from models import RegistrationStub, UserProfile, OpenidAuthStub
 import smtplib
 from authentication import settings
 
@@ -39,6 +40,7 @@ def login_view( request ):
                                    context_instance=RequestContext(request) )
 
 def google_login( request ):
+    # TODO: error handling
     import urllib2
     from urllib import urlencode
     from xml.dom import minidom
@@ -92,6 +94,7 @@ def google_login( request ):
                                context_instance=RequestContext(request) )
 
 def google_login_success( request ):
+    # TODO: more error handling
     if request.method == 'GET':
         params = request.GET
     elif request.method == 'POST':
@@ -115,6 +118,25 @@ def google_login_success( request ):
     association = params['openid.assoc_handle']
 
     # TODO: Create a new user in database (if nonexistent), or log in
+    # Try to retrieve this user's profile by openid handle
+    try:
+        profile = UserProfile.objects.get( openid_auth_stub__claimed_id = userid )
+    except UserProfile.DoesNotExist:
+        # Try to retrieve the user's profile by email address (username)
+        try:
+            user = User.objects.get( username=email )
+            profile = UserProfile.objects.get( user=user )
+        except User.DoesNotExist:
+            # This person has never logged in before
+            random_password = lambda : ''.join( (choice('ABCDEFabcdef1234567890)(*&^%$#@!') for i in xrange(10)) )
+            user=User.create_user(email, random_password())
+            user.first_name = firstname
+            user.last_name = lastname
+            user.save()
+            profile = UserProfile( user=user )
+        # Save openid information when this user has never used openid before
+        openid_auth_stub = OpenidAuthStub(association=association, claimed_id=userid)
+        profile.save()
 
     return render_to_response( 'google_login_success.html',
                                locals(),
@@ -141,9 +163,9 @@ def register( request ):
             user.is_active = False
             user.save()
             
-            stub = UserLoginStub.objects.create( user=user )
-
-            # TODO: send confirmation email
+            stub = RegistrationStub.objects.create( user=user )
+            
+            # Send confirmation email
             hostname = settings.HOSTNAME if 'HOSTNAME' in dir(settings) else 'localhost'
             activate_uri = '/accounts/activate/'
             activate_link = 'http://{}{}{}'.format( hostname, activate_uri, stub.activationCode )
@@ -172,8 +194,8 @@ def register( request ):
 def activate( request, key ):
     # Try to find the user/stub to activate
     try:
-        stub = UserLoginStub.objects.get( activationCode=key )
-    except UserLoginStub.DoesNotExist:
+        stub = RegistrationStub.objects.get( activationCode=key )
+    except RegistrationStub.DoesNotExist:
         return HttpResponse("Invalid activation key.")
 
     # Activate the user, lose the stub
