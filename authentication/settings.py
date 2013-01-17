@@ -18,6 +18,9 @@ HERE = os.path.dirname( os.path.abspath(__file__) )
 # This needs to be changed as the site is moved around
 HOSTNAME='llovett.cs.oberlin.edu:8050'
 
+# Message storage backend
+MESSAGE_STORAGE = 'django.contrib.messages.storage.session.SessionStorage'
+
 # Local time zone for this installation. Choices can be found here:
 # http://en.wikipedia.org/wiki/List_of_tz_zones_by_name
 # although not all choices may be available on all operating systems.
@@ -115,6 +118,7 @@ TEMPLATE_DIRS = (
 
 TEMPLATE_CONTEXT_PROCESSORS = (
     'django.contrib.auth.context_processors.auth',
+    'django.contrib.messages.context_processors.messages',
 )
 
 INSTALLED_APPS = (

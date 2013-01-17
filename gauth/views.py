@@ -1,5 +1,6 @@
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
+from django.contrib import messages
 from django.core.urlresolvers import reverse
 from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import render_to_response, redirect
@@ -14,6 +15,10 @@ from authentication import settings
 
 GOOGLE_GET_ENDPOINT_URL = 'https://www.google.com/accounts/o8/id'
 
+def _fail_login( request, msg ):
+    messages.add_message( request, messages.ERROR, msg )
+    return HttpResponseRedirect( reverse('login') )
+
 def login_view( request ):
     # Login form submitted
     if request.method == 'POST':
@@ -25,9 +30,9 @@ def login_view( request ):
                 login( request, user )
                 return HttpResponseRedirect( reverse('login_success') )
             else:
-                error_msg = 'invalid login'
+                return _fail_login( request, 'invalid login' )
         except User.DoesNotExist:
-            error_msg = 'invalid login'
+            return _fail_login( request, 'invalid login' )
         form = LoginForm()
         return render_to_response( 'login.html', locals(), context_instance=RequestContext(request) )
     # Login form needs rendering
@@ -52,16 +57,16 @@ def login_view( request ):
             try:
                 response = urllib2.urlopen( GOOGLE_GET_ENDPOINT_URL )
             except urllib2.URLError:
-                HttpResponse( "couldn't send discovery request to google" )
+                return _fail_login( request, 'could not contact Google' )
 
             # Parse XML response
             try:
                 parsed = minidom.parseString( response.read() )
             except ExpatError as error:
-                HttpResponse( "invalid xml: %s" % error.strerror() )
+                return _fail_login( request, 'invalid response from Google: {}'.format(error.strerror()) )
             URI = parsed.getElementsByTagName( 'URI' )
             if len(URI) <= 0 or len(URI[0].childNodes) <= 0:
-                HttpResponse( "couldn't find endpoint URI in google's response" )
+                return _fail_login( request, 'could not find Google authentication server' )
 
             return URI[0].childNodes[0].toxml()
         ########################################
@@ -93,7 +98,6 @@ def login_view( request ):
                                    context_instance=RequestContext(request) )
 
 def google_login_success( request ):
-    # TODO: more error handling
     if request.method == 'GET':
         params = request.GET
     elif request.method == 'POST':
@@ -103,7 +107,7 @@ def google_login_success( request ):
     mode = params['openid.mode']
     if mode != 'id_res':
         # The user declined to sign in at Google
-        return HttpResponse( "could not complete authentication" )
+        return _fail_login( request, 'could not verify your credentials' )
 
     email = values['email']
     firstname = values['firstname']
