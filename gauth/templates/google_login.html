@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block content %}
+  <h2>Log in with Google</h2>
+  <form method="POST" action="{{ endpoint }}">
+    {% for key, value in params.items %}
+      <input type="hidden" name="{{ key }}" value="{{ value }}" />
+    {% endfor %}
+    <input type="submit" value="continue" />
+  </form>
+{% endblock %}
