@@ -37,7 +37,7 @@ class RegistrationStub( mdb.Document ):
         self.activationCode = ''.join([choice('abcdef1234567890') for i in xrange(80)])
         # Use current time
         self.date = datetime.now()
-        super( UserLoginStub, self ).save( *args, **kwargs )
+        super( RegistrationStub, self ).save( *args, **kwargs )
 
     # Special handling in the database:
     # No more than 10,000 documents,

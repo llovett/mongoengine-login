@@ -8,7 +8,6 @@ from django.template import RequestContext
 from forms import LoginForm, RegisterForm
 from mongoengine.django.auth import User
 from random import choice
-from authentication import settings
 from models import RegistrationStub, UserProfile, OpenidAuthStub
 import smtplib
 from authentication import settings
@@ -18,6 +17,12 @@ GOOGLE_GET_ENDPOINT_URL = 'https://www.google.com/accounts/o8/id'
 def _fail_login( request, msg ):
     messages.add_message( request, messages.ERROR, msg )
     return HttpResponseRedirect( reverse('login') )
+
+def _hostname( protocol="http" ):
+    basename = settings.HOSTNAME if 'HOSTNAME' in dir(settings) else 'localhost'
+    if protocol and len(protocol) > 0:
+        basename = "{}://{}".format( protocol, basename )
+    return basename
 
 def login_view( request ):
     # Login form submitted
@@ -40,7 +45,6 @@ def login_view( request ):
         if request.user.is_authenticated():
             return redirect( user_show )
 
-        # TODO: error handling
         import urllib2
         from urllib import urlencode
         from xml.dom import minidom
@@ -78,7 +82,7 @@ def login_view( request ):
             'openid.ns' : 'http://specs.openid.net/auth/2.0',
             'openid.claimed_id' : 'http://specs.openid.net/auth/2.0/identifier_select',
             'openid.identity' : 'http://specs.openid.net/auth/2.0/identifier_select',
-            'openid.return_to' : 'http://llovett.cs.oberlin.edu:8050'+reverse('google_login_success'),
+            'openid.return_to' : _hostname()+reverse('google_login_success'),
             'openid.realm' : 'http://llovett.cs.oberlin.edu:8050',
             'openid.ns.ax' : 'http://openid.net/srv/ax/1.0',
             'openid.ax.mode': 'fetch_request',
@@ -149,6 +153,25 @@ def google_login_success( request ):
                                locals(),
                                context_instance=RequestContext(request) )
 
+def activate( request ):
+    # Try to find the user/stub to activate
+    try:
+        key = request.GET['key']
+        stub = RegistrationStub.objects.get( activationCode=key )
+    except (KeyError, RegistrationStub.DoesNotExist):
+        messages.add_message( request, messages.ERROR, 'invalid activation key' )
+        return HttpResponseRedirect( reverse('login') )
+
+    # Activate the user, lose the stub
+    user = stub.user
+    user.is_active = True
+    user.save()
+    stub.delete()
+
+    # Create a success message
+    messages.add_message( request, messages.SUCCESS, 'Your account has been successfully activated.' )
+    return HttpResponseRedirect( reverse('login_success') )
+
 def register( request ):
     # Cannot register if logged in already
     if request.user.is_authenticated():
@@ -173,9 +196,9 @@ def register( request ):
             stub = RegistrationStub.objects.create( user=user )
             
             # Send confirmation email
-            hostname = settings.HOSTNAME if 'HOSTNAME' in dir(settings) else 'localhost'
-            activate_uri = '/accounts/activate/'
-            activate_link = 'http://{}{}{}'.format( hostname, activate_uri, stub.activationCode )
+            hostname = _hostname( protocol="" )
+            activate_uri = reverse( 'activate' )
+            activate_link = '{}{}?key={}'.format( hostname, activate_uri, stub.activationCode )
             email_subject = "Welcome to Obietaxi!"
             email_from = 'noreply@{}'.format( hostname )
             email_to = form.cleaned_data['username']
@@ -189,7 +212,8 @@ def register( request ):
             server.sendmail( email_from, [email_to], email_message )
             server.quit()
             
-            return HttpResponse("your user has been created as inactive")
+            messages.add_message( request, messages.SUCCESS, "Your account has been created. Check your email for a confirmation link to complete the registration process." )
+            return HttpResponseRedirect( reverse('login') )
         
     # Form needs to be rendered
     else:
@@ -197,20 +221,6 @@ def register( request ):
 
     # Render the form (possibly with errors if form did not validate)
     return render_to_response( 'register.html', locals(), context_instance=RequestContext(request) )
-
-def activate( request, key ):
-    # Try to find the user/stub to activate
-    try:
-        stub = RegistrationStub.objects.get( activationCode=key )
-    except RegistrationStub.DoesNotExist:
-        return HttpResponse("Invalid activation key.")
-
-    # Activate the user, lose the stub
-    user = stub.user
-    user.is_active = True
-    user.save()
-    stub.delete()
-    return HttpResponseRedirect( reverse('login_success') )
 
 @login_required
 def user_show( request ):
