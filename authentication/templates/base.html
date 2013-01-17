@@ -11,7 +11,6 @@
     <div id="links">
       <ul class="linklist">
 	<li><a href="{% url login %}">login</a></li>
-	<li><a href="{% url google_login %}">sign in with Google</a></li>
 	<li><a href="{% url logout %}">logout</a></li>
 	{% if not user.is_authenticated %}
 	  <li><a href="{% url register %}">register</a></li>

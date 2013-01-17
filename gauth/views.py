@@ -34,64 +34,63 @@ def login_view( request ):
     else:
         if request.user.is_authenticated():
             return redirect( user_show )
+
+        # TODO: error handling
+        import urllib2
+        from urllib import urlencode
+        from xml.dom import minidom
+        from xml.parsers.expat import ExpatError
+
+        ########################################
+        def get_endpoint():
+            '''
+            Get Google's authentication endpoint.
+            returns the url as a string
+
+            '''
+            # Get discovery URL
+            try:
+                response = urllib2.urlopen( GOOGLE_GET_ENDPOINT_URL )
+            except urllib2.URLError:
+                HttpResponse( "couldn't send discovery request to google" )
+
+            # Parse XML response
+            try:
+                parsed = minidom.parseString( response.read() )
+            except ExpatError as error:
+                HttpResponse( "invalid xml: %s" % error.strerror() )
+            URI = parsed.getElementsByTagName( 'URI' )
+            if len(URI) <= 0 or len(URI[0].childNodes) <= 0:
+                HttpResponse( "couldn't find endpoint URI in google's response" )
+
+            return URI[0].childNodes[0].toxml()
+        ########################################
+
+        endpoint = str( get_endpoint() )
+        
+        params = {
+            'openid.mode' : 'checkid_setup',
+            'openid.ns' : 'http://specs.openid.net/auth/2.0',
+            'openid.claimed_id' : 'http://specs.openid.net/auth/2.0/identifier_select',
+            'openid.identity' : 'http://specs.openid.net/auth/2.0/identifier_select',
+            'openid.return_to' : 'http://llovett.cs.oberlin.edu:8050'+reverse('google_login_success'),
+            'openid.realm' : 'http://llovett.cs.oberlin.edu:8050',
+            'openid.ns.ax' : 'http://openid.net/srv/ax/1.0',
+            'openid.ax.mode': 'fetch_request',
+            'openid.ax.type.email' : 'http://axschema.org/contact/email',
+            'openid.ax.type.firstname' : 'http://axschema.org/namePerson/first',
+            'openid.ax.type.lastname' : 'http://axschema.org/namePerson/last',
+            'openid.ax.required' : 'email,firstname,lastname'
+        }
+        if request.user.is_authenticated():
+            profile = UserProfile.objects.get( user=request.user )
+            if profile.openid_auth_stub:
+                params['openid.assoc_handle'] = profile.openid_auth_stub.association
+
         form = LoginForm()
         return render_to_response( 'login.html',
                                    locals(),
                                    context_instance=RequestContext(request) )
-
-def google_login( request ):
-    # TODO: error handling
-    import urllib2
-    from urllib import urlencode
-    from xml.dom import minidom
-    from xml.parsers.expat import ExpatError
-
-    ########################################
-    def get_endpoint():
-        '''
-        Get Google's authentication endpoint.
-        returns the url as a string
-
-        '''
-        # Get discovery URL
-        try:
-            response = urllib2.urlopen( GOOGLE_GET_ENDPOINT_URL )
-        except urllib2.URLError:
-            HttpResponse( "couldn't send discovery request to google" )
-
-        # Parse XML response
-        try:
-            parsed = minidom.parseString( response.read() )
-        except ExpatError as error:
-            HttpResponse( "invalid xml: %s" % error.strerror() )
-        URI = parsed.getElementsByTagName( 'URI' )
-        if len(URI) <= 0 or len(URI[0].childNodes) <= 0:
-            HttpResponse( "couldn't find endpoint URI in google's response" )
-
-        return URI[0].childNodes[0].toxml()
-    ########################################
-
-    endpoint = str( get_endpoint() )
-    params = {
-        'openid.mode' : 'checkid_setup',
-        'openid.ns' : 'http://specs.openid.net/auth/2.0',
-        'openid.claimed_id' : 'http://specs.openid.net/auth/2.0/identifier_select',
-        'openid.identity' : 'http://specs.openid.net/auth/2.0/identifier_select',
-        'openid.return_to' : 'http://llovett.cs.oberlin.edu:8050'+reverse('google_login_success'),
-#        'openid.assoc_handle' : ASSOC_HANDLE,  # TODO: figure this out
-        'openid.realm' : 'http://llovett.cs.oberlin.edu:8050',
-
-        'openid.ns.ax' : 'http://openid.net/srv/ax/1.0',
-        'openid.ax.mode': 'fetch_request',
-        'openid.ax.type.email' : 'http://axschema.org/contact/email',
-        'openid.ax.type.firstname' : 'http://axschema.org/namePerson/first',
-        'openid.ax.type.lastname' : 'http://axschema.org/namePerson/last',
-        'openid.ax.required' : 'email,firstname,lastname'
-    }
-
-    return render_to_response( 'google_login.html',
-                               locals(),
-                               context_instance=RequestContext(request) )
 
 def google_login_success( request ):
     # TODO: more error handling
@@ -140,6 +139,8 @@ def google_login_success( request ):
         profile.openid_auth_stub = OpenidAuthStub(association=association, claimed_id=userid)
         profile.save()
 
+    profile.user.backend = 'mongoengine.django.auth.MongoEngineBackend'
+    login( request, profile.user )
     return render_to_response( 'google_login_success.html',
                                locals(),
                                context_instance=RequestContext(request) )
