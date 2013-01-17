@@ -8,7 +8,7 @@ class OpenidAuthStub( mdb.EmbeddedDocument ):
 
     '''
     # Association: good for one session
-    assocation = mdb.StringField()
+    association = mdb.StringField()
     # Claimed ID: this will always uniquely identify this user, as long as our realm doesn't change
     claimed_id = mdb.StringField()
 

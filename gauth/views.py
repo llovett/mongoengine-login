@@ -135,7 +135,7 @@ def google_login_success( request ):
             user.save()
             profile = UserProfile( user=user )
         # Save openid information when this user has never used openid before
-        openid_auth_stub = OpenidAuthStub(association=association, claimed_id=userid)
+        profile.openid_auth_stub = OpenidAuthStub(association=association, claimed_id=userid)
         profile.save()
 
     return render_to_response( 'google_login_success.html',
