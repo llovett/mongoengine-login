@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
   <h2>Welcome, {{ request.user.username }}!</h2>
-  <form method="POST" action="{% url logout_url %}">
+  <form method="POST" action="{% url logout %}">
     {% csrf_token %}    
     <input type="submit" value="logout" />
   </form>

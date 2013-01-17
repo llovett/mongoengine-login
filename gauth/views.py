@@ -117,17 +117,18 @@ def google_login_success( request ):
 
     association = params['openid.assoc_handle']
 
-    # TODO: Create a new user in database (if nonexistent), or log in
-    # Try to retrieve this user's profile by openid handle
+    # Use the information from Google to retrieve this user's profile,
+    # or create a new user and profile.
+    # 1) Try to retrieve this user's profile by openid handle
     try:
         profile = UserProfile.objects.get( openid_auth_stub__claimed_id = userid )
     except UserProfile.DoesNotExist:
-        # Try to retrieve the user's profile by email address (username)
+        # 2) Try to retrieve the user's profile by email address (username)
         try:
             user = User.objects.get( username=email )
             profile = UserProfile.objects.get( user=user )
         except User.DoesNotExist:
-            # This person has never logged in before
+            # 3) This person has never logged in before
             random_password = lambda : ''.join( (choice('ABCDEFabcdef1234567890)(*&^%$#@!') for i in xrange(10)) )
             user=User.create_user(email, random_password())
             user.first_name = firstname
@@ -135,6 +136,7 @@ def google_login_success( request ):
             user.save()
             profile = UserProfile( user=user )
         # Save openid information when this user has never used openid before
+        # This should happen even if the user's profile already exists
         profile.openid_auth_stub = OpenidAuthStub(association=association, claimed_id=userid)
         profile.save()
 
@@ -145,7 +147,7 @@ def google_login_success( request ):
 def register( request ):
     # Cannot register if logged in already
     if request.user.is_authenticated():
-        return HttpResponseRedirect( reverse('login_url') )
+        return HttpResponseRedirect( reverse('login') )
 
     # The registration form
     form = None
