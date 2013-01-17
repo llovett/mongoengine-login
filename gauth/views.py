@@ -98,7 +98,7 @@ def google_login_success( request ):
         params = request.POST
     values = { p.split('.')[-1] : params[p] for p in params.keys() if 'value' in p }    
     
-    mode = values['openid.mode']
+    mode = params['openid.mode']
     if mode != 'id_res':
         # The user declined to sign in at Google
         return HttpResponse( "could not complete authentication" )
@@ -111,6 +111,8 @@ def google_login_success( request ):
     # Break apart the handle to find the user's ID
     # Assumes there are no other parameters attached to URL in 'openid.claimed_id'
     userid = handle.split("?")[-1].split("=")[-1]
+
+    association = params['openid.assoc_handle']
 
     # TODO: Create a new user in database (if nonexistent), or log in
 
